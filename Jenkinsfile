@@ -2,29 +2,32 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "prajaktabirhade/html-site"
-        DOCKER_TAG = "latest"
-        DOCKER_CREDENTIALS_ID = "dockerhub-creds"
+        IMAGE_NAME = "prajaktabirhade/html-site"
+        IMAGE_TAG  = "latest"
     }
 
     stages {
 
+        stage('Checkout Code') {
+            steps {
+                checkout scm
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE:$DOCKER_TAG .'
+                sh '''
+                  docker build -t $IMAGE_NAME:$IMAGE_TAG .
+                '''
             }
         }
 
         stage('Push Image to DockerHub') {
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: DOCKER_CREDENTIALS_ID,
-                    usernameVariable: 'DOCKER_USER',
-                    passwordVariable: 'DOCKER_PASS'
-                )]) {
+                withCredentials([string(credentialsId: 'dockerhub-pass', variable: 'DOCKER_PASS')]) {
                     sh '''
-                      echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                      docker push $DOCKER_IMAGE:$DOCKER_TAG
+                      echo $DOCKER_PASS | docker login -u prajaktabirhade --password-stdin
+                      docker push $IMAGE_NAME:$IMAGE_TAG
                     '''
                 }
             }
@@ -32,9 +35,11 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh 'kubectl apply -f dep.yaml'
-                sh 'kubectl apply -f service.yaml'
+                sh '''
+                  kubectl apply -f dep.yaml
+                  kubectl apply -f service.yaml
+                '''
             }
         }
-    
-
+    }
+}
